@@ -1,0 +1,11 @@
+lib/lib/
+├── services/
+│   └── profile_controller.dart           # 🔥 NUOVO - Business logic profilo
+│
+└── screens/profile/
+    ├── profile_screen.dart               # 🔄 RIDOTTO (700+ → ~120 righe)
+    │
+    └── widgets/                          # 📁 NUOVA CARTELLA
+        ├── profile_header.dart           # 🔥 Header con avatar + info utente
+        ├── avatar_picker.dart            # 🔥 Gestione pick/upload avatar  
+        └── profile_tabs.dart             # 🔥 Tab bar + contenuto ricette/preferiti

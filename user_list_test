@@ -1,0 +1,15 @@
+"username": "orsochef",
+    "password": "password123",
+    "displayName": "Orso Chef"
+"email": "orso_chef@cook.com"
+
+
+///////////////
+
+
+# Dopo riavvio, basta fare:
+docker-compose up -d  # Avvia MinIO + PostgreSQL
+npm run dev           # Avvia backend
+
+# Oppure:
+npm run start:services && npm run dev

@@ -1,0 +1,90 @@
+# Terminale 2 - Frontend
+cd app_ricette_frontend
+flutter run
+
+
+** BACK END - Docker/Prisma **
+# Terminale 1 - Database & Backend
+cd app_ricette_backend
+docker-compose up -d
+npm run dev
+
+npx prisma studio
+
+
+
+** Docker **
+docker ps  # Dovresti vedere il container del database
+
+
+***************************************
+https://mailtrap.io/inboxes/4326845/messages
+Host
+
+sandbox.smtp.mailtrap.io
+Port
+
+25, 465, 587 or 2525
+Username
+
+f71e248622c6bc
+Password
+***************************************
+***************************************
+Twillo /// Sendgrid
+You're all verified!
+If you lose your phone, or don’t have access to your verification device, this code is your failsafe to access your account.
+
+Recovery code
+HTCY6HJT5DTUALNF3BCK2WHR
+
+
+(warning)
+
+
+
+***************************************
+***************************************
+****0ecc
+Auth
+
+PLAIN, LOGIN and CRAM-MD5
+TLS
+
+Optional (STARTTLS on all ports)
+
+***************************************
+////////////////////////////////////////////////////////
+# Vai nella directory principale del progetto
+cd /home/flutter_211/Documents/progetto_ricette
+
+# Crea documentazione pulita COMPLETA
+{
+  echo "# 🍳 PROGETTO RICETTE - Struttura per sviluppo"
+  echo "# Generato: $(date '+%d/%m/%Y %H:%M')"
+  echo ""
+  
+  echo "## 🔙 BACKEND (Node.js - API)"
+  echo '```'
+  tree -I '.git|node_modules|build|dist' --dirsfirst app_ricette_backend/ 2>/dev/null
+  echo '```'
+  echo ""
+  
+  echo "## 📱 FRONTEND (Flutter - App)"
+  echo '```'
+  tree -I '.git|build|.dart_tool' --dirsfirst app_ricette_frontend/ 2>/dev/null
+  echo '```'
+  echo ""
+  
+  echo "## 📊 STATISTICHE"
+  echo "- File backend totali: $(find app_ricette_backend -type f 2>/dev/null | wc -l)"
+  echo "- File frontend totali: $(find app_ricette_frontend -type f 2>/dev/null | wc -l)"
+  echo "- File frontend Dart: $(find app_ricette_frontend -name "*.dart" -type f 2>/dev/null | wc -l)"
+  echo "- Data generazione: $(date)"
+} > "DOCUMENTAZIONE_SVILUPPO_COMPLETA_$(date +%Y%m%d_%H%M).md"
+
+echo "✅ Documentazione creata: DOCUMENTAZIONE_SVILUPPO_COMPLETA_$(date +%Y%m%d_%H%M).md"
+echo "📄 Puoi leggerla con:"
+echo "  less DOCUMENTAZIONE_SVILUPPO_COMPLETA_$(date +%Y%m%d_%H%M).md"
+echo "  oppure"
+echo "  cat DOCUMENTAZIONE_SVILUPPO_COMPLETA_$(date +%Y%m%d_%H%M).md | wc -l  (per vedere quante righe)"

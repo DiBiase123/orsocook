@@ -1,0 +1,21 @@
+{
+  "id": "a06b969d-1925-4a88-910e-b42158fb41e7",
+  "title": "TEST dopo fix completo",
+  "description": "Descrizione test",
+  "prepTime": 15,
+  "cookTime": 25,
+  "servings": 6,
+  "difficulty": "MEDIUM",
+  "isPublic": true,
+  "imageUrl": "",
+  "slug": "",
+  "views": 999,
+  "author": {"id": "test", "username": "test"},
+  "authorId": "fake-id",
+  "category": "Primi",
+  "categoryId": "fake-category-id",
+  "createdAt": "2026-01-03T23:20:06.740267",
+  "updatedAt": "2026-01-03T23:20:06.740268",
+  "ingredients": [{"name": "Farina", "unit": "g", "quantity": "300"}],
+  "instructions": [{"step": 1, "description": "Mescolare tutto"}]
+}

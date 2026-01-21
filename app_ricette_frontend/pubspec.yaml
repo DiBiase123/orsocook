@@ -1,0 +1,47 @@
+name: orsocook
+description: "OrsoCook - App social per ricette"
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  
+  # Networking
+  http: ^1.2.2  # <-- UNA SOLA VOLTA
+  dio: ^5.0.0
+  http_parser: ^4.0.2  # <-- PER AVATAR SERVICE
+  
+  # State Management & Storage
+  provider: ^6.1.2
+  shared_preferences: ^2.5.4
+  
+  # UI & Icons
+  cupertino_icons: ^1.0.8
+  
+  # File & Images
+  image_picker: ^1.0.4
+  path: ^1.9.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+
+  # COMMENTA/RIMUOVI le righe assets/fonts se non hai i file!
+  # assets:
+  #   - assets/images/
+  # 
+  # fonts:
+  #   - family: Roboto
+  #     fonts:
+  #       - asset: fonts/Roboto-Regular.ttf
+  #       - asset: fonts/Roboto-Bold.ttf
+  #         weight: 700
