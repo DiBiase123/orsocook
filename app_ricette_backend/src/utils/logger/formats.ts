@@ -1,4 +1,5 @@
-import { format } from 'winston';
+import winston from 'winston';
+const { format } = winston;
 
 export const consoleFormat = format.combine(
   format.timestamp({ format: 'HH:mm:ss' }),
