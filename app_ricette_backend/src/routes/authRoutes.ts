@@ -20,23 +20,9 @@ import { authenticateToken } from '../middleware/auth';
 const router = express.Router();
 
 // ==================== CONFIGURAZIONE MULTER AVATAR ====================
-const avatarStorage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    const uploadDir = 'uploads/avatars/';
-    // Crea directory se non esiste
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-    cb(null, uploadDir);
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, 'avatar-' + uniqueSuffix + path.extname(file.originalname));
-  }
-});
-
+// ✅ MODIFICA: Usa memoryStorage invece di diskStorage per Vercel
 const avatarUpload = multer({ 
-  storage: avatarStorage,
+  storage: multer.memoryStorage(), // ⬅️ MODIFICA CRUCIALE
   limits: {
     fileSize: 5 * 1024 * 1024, // 5MB per avatar (meno delle ricette)
   },
@@ -116,8 +102,9 @@ router.put(
       originalname: req.file.originalname,
       mimetype: req.file.mimetype,
       size: req.file.size,
-      path: req.file.path,
-      buffer: req.file.buffer ? `Buffer ${req.file.buffer.length} bytes` : 'No buffer'
+      // MODIFICA: ora avremo buffer invece di path
+      buffer: req.file.buffer ? `Buffer ${req.file.buffer.length} bytes` : 'No buffer',
+      path: req.file.path || 'No path (memory storage)'
     } : 'NO FILE - Multer did not process file');
     console.log('🔍 [MULTER DEBUG 2] req.body:', req.body);
     
@@ -137,4 +124,4 @@ router.put(
   updateAvatar
 );
 
-export default router;  // 👈 QUESTA È LA RIGA CHE MANCAVA
+export default router;

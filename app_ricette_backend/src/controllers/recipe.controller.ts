@@ -2,10 +2,11 @@ import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { AuthRequest } from '../middleware/auth';
 import multer from 'multer';
-import { uploadToMinIO } from '../utils/minio';
 import slugify from 'slugify';
 import fs from 'fs';
 import path from 'path';
+// RIMUOVI MinIO e aggiungi Cloudinary
+import { uploadImageToCloudinary } from '../services/cloudinary.service';
 
 const prisma = new PrismaClient();
 
@@ -306,17 +307,22 @@ export async function createRecipe(req: AuthRequest, res: Response) {
     const baseSlug = slugify(title, { lower: true });
     const uniqueSlug = `${baseSlug}-${Date.now()}`;
 
-    // Gestione immagine
+    // Gestione immagine CON CLOUDINARY
     let imageUrl: string | undefined;
     if (req.file) {
       try {
-        const uploadResult = await uploadToMinIO(req.file, 'recipes');
-        imageUrl = uploadResult.url;
+        // Leggi il file buffer
+        const fileBuffer = fs.readFileSync(req.file.path);
+        
+        // Upload a Cloudinary
+        imageUrl = await uploadImageToCloudinary(fileBuffer, 'orsocook/recipes');
         
         // Cancella il file temporaneo
         fs.unlinkSync(req.file.path);
+        
+        console.log('✅ Immagine caricata su Cloudinary:', imageUrl);
       } catch (uploadError) {
-        console.error('❌ Error uploading image:', uploadError);
+        console.error('❌ Error uploading image to Cloudinary:', uploadError);
         return res.status(500).json({
           success: false,
           message: 'Errore nel caricamento dell\'immagine'
@@ -462,7 +468,7 @@ export async function createRecipe(req: AuthRequest, res: Response) {
   } catch (error) {
     console.error('❌ Error creating recipe:', error);
     
-    // Cancella l'immagine se è stata caricata ma la ricetta non è stata creata
+    // Cancella il file temporaneo se esiste
     if (req.file && req.file.path) {
       try {
         fs.unlinkSync(req.file.path);
@@ -546,26 +552,26 @@ export async function updateRecipe(req: AuthRequest, res: Response) {
     if (ingredients !== undefined) updateData.ingredients = ingredients;
     if (instructions !== undefined) updateData.instructions = instructions;
 
-    // Gestione immagine
+    // Gestione immagine CON CLOUDINARY
     if (req.file) {
       try {
-        // Cancella l'immagine vecchia se esiste
-        if (existingRecipe.imageUrl) {
-          try {
-            // Potresti voler implementare la cancellazione da MinIO qui
-          } catch (deleteError) {
-            console.error('Error deleting old image:', deleteError);
-          }
-        }
-
-        // Carica la nuova immagine
-        const uploadResult = await uploadToMinIO(req.file, 'recipes');
-        updateData.imageUrl = uploadResult.url;
+        // Leggi il file buffer
+        const fileBuffer = fs.readFileSync(req.file.path);
+        
+        // Upload a Cloudinary
+        const newImageUrl = await uploadImageToCloudinary(fileBuffer, 'orsocook/recipes');
+        updateData.imageUrl = newImageUrl;
+        
+        console.log('✅ Nuova immagine caricata su Cloudinary:', newImageUrl);
         
         // Cancella il file temporaneo
         fs.unlinkSync(req.file.path);
+        
+        // NOTA: Puoi eventualmente implementare la cancellazione della vecchia immagine da Cloudinary
+        // se vuoi ottimizzare lo storage. Usa deleteImageFromCloudinary(publicId)
+        
       } catch (uploadError) {
-        console.error('❌ Error uploading image:', uploadError);
+        console.error('❌ Error uploading image to Cloudinary:', uploadError);
         return res.status(500).json({
           success: false,
           message: 'Errore nel caricamento dell\'immagine'
@@ -949,7 +955,7 @@ export async function removeLikeFromRecipe(req: AuthRequest, res: Response) {
     res.status(200).json({
       success: true,
       message: 'Like rimosso',
-      data: { liked: false } // ✅ MODIFICA: Ritorna { liked: false }
+      data: { liked: false }
     });
   } catch (error) {
     console.error('❌ Error removing like:', error);
@@ -959,7 +965,7 @@ export async function removeLikeFromRecipe(req: AuthRequest, res: Response) {
       return res.status(200).json({
         success: true,
         message: 'Like non presente',
-        data: { liked: false } // ✅ MODIFICA: Ritorna { liked: false }
+        data: { liked: false }
       });
     }
 
@@ -1006,7 +1012,7 @@ export async function checkRecipeFavorite(req: AuthRequest, res: Response) {
 }
 
 /**
- * POST /api/recipes/:id/upload-image - Upload immagine per ricetta esistente
+ * POST /api/recipes/:id/upload-image - Upload immagine per ricetta esistente CON CLOUDINARY
  */
 export async function uploadRecipeImage(req: AuthRequest, res: Response) {
   try {
@@ -1039,20 +1045,36 @@ export async function uploadRecipeImage(req: AuthRequest, res: Response) {
       });
     }
 
-    // Upload a MinIO
-    const uploadResult = await uploadToMinIO(req.file, 'recipes');
-    
-    // Aggiorna ricetta con imageUrl
-    await prisma.recipe.update({
-      where: { id },
-      data: { imageUrl: uploadResult.url }
-    });
+    try {
+      // Leggi il file buffer
+      const fileBuffer = fs.readFileSync(req.file.path);
+      
+      // Upload a Cloudinary
+      const imageUrl = await uploadImageToCloudinary(fileBuffer, 'orsocook/recipes');
+      
+      // Aggiorna ricetta con imageUrl
+      await prisma.recipe.update({
+        where: { id },
+        data: { imageUrl }
+      });
 
-    res.status(200).json({
-      success: true,
-      message: 'Immagine caricata con successo',
-      data: { imageUrl: uploadResult.url } // ✅ MODIFICA: Ritorna solo imageUrl
-    });
+      // Cancella il file temporaneo
+      fs.unlinkSync(req.file.path);
+      
+      console.log('✅ Immagine caricata su Cloudinary:', imageUrl);
+
+      res.status(200).json({
+        success: true,
+        message: 'Immagine caricata con successo',
+        data: { imageUrl }
+      });
+    } catch (uploadError) {
+      console.error('❌ Error uploading image to Cloudinary:', uploadError);
+      return res.status(500).json({
+        success: false,
+        message: 'Errore nel caricamento dell\'immagine'
+      });
+    }
   } catch (error) {
     console.error('❌ Error uploading recipe image:', error);
     res.status(500).json({

@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 const bcrypt = require('bcrypt');
 import jwt from 'jsonwebtoken';
 import { PrismaClient } from '@prisma/client';
-import { uploadToMinIO, deleteFromMinIO } from '../utils/minio';
+import { uploadImageToCloudinary } from '../services/cloudinary.service';
 import { emailService } from '../services/email.service';
 import crypto from 'crypto';
 
@@ -727,52 +727,80 @@ export const getUserProfile = async (req: any, res: Response): Promise<void> => 
 
 export const updateAvatar = async (req: any, res: Response): Promise<void> => {
   try {
+    console.log('🔄 [updateAvatar] Starting avatar update process');
+    
     if (!req.user || !req.user.id) {
       res.status(401).json({ success: false, message: 'Utente non autenticato' });
       return;
     }
 
     if (!req.file) {
+      console.log('❌ [updateAvatar] No file provided by Multer');
       res.status(400).json({ success: false, message: 'Nessuna immagine fornita' });
       return;
     }
 
+    console.log('📄 [updateAvatar] File details:', {
+      originalname: req.file.originalname,
+      mimetype: req.file.mimetype,
+      size: req.file.size,
+      bufferLength: req.file.buffer?.length || 0
+    });
+
+    // Validazione
     if (!req.file.mimetype.startsWith('image/') || req.file.size > 5 * 1024 * 1024) {
       res.status(400).json({ success: false, message: 'Immagine non valida o troppo grande (max 5MB)' });
       return;
     }
 
+    const userId = req.user.id;
     const user = await prisma.user.findUnique({
-      where: { id: req.user.id },
+      where: { id: userId },
       select: { avatarUrl: true }
     });
 
-    // Delete old avatar if exists
-    if (user?.avatarUrl) {
-      const urlParts = user.avatarUrl.split('/');
-      const filename = urlParts.slice(5).join('/');
-      if (filename) {
-        try { 
-          await deleteFromMinIO(filename.split('?')[0]);
-        } catch (e) { 
-          console.warn('Errore eliminazione vecchio avatar:', e);
-        }
-      }
+    // 🚨 IMPORTANTE: NOTA SULLA CANCELLAZIONE
+    // Per cancellare un'immagine vecchia da Cloudinary, avremmo bisogno del public_id
+    // Ma se l'immagine vecchia è su MinIO (non Cloudinary), non possiamo cancellarla
+    // Per ora, saltiamo la cancellazione e gestiamo solo il nuovo upload
+    
+    // Se vuoi implementare la cancellazione futura, dovrai:
+    // 1. Salvare il public_id di Cloudinary nel database
+    // 2. Oppure estrarre public_id dall'URL (complesso)
+
+    // 🚨 MODIFICA: Upload nuovo avatar a Cloudinary
+    console.log('📤 [updateAvatar] Uploading to Cloudinary...');
+    const fileBuffer = req.file.buffer;
+    
+    if (!fileBuffer || fileBuffer.length === 0) {
+      console.error('❌ [updateAvatar] File buffer is empty');
+      res.status(500).json({ 
+        success: false, 
+        message: 'Errore nel caricamento dell\'immagine' 
+      });
+      return;
     }
 
-    // Upload new avatar
-    const uploadResult = await uploadToMinIO(req.file, 'avatars');
-    
-    // AGGIUNGI CACHE BUSTING PARAMETER
-    const avatarUrlWithCacheBusting = `${uploadResult.url}?v=${Date.now()}`;
-    
+    // Upload a Cloudinary nella cartella 'orsocook/avatars'
+    const imageUrl = await uploadImageToCloudinary(fileBuffer, 'orsocook/avatars');
+    console.log('✅ [updateAvatar] Avatar uploaded to Cloudinary:', imageUrl);
+
+    // Aggiorna URL nel database
     const updatedUser = await prisma.user.update({
-      where: { id: req.user.id },
+      where: { id: userId },
       data: { 
-        avatarUrl: avatarUrlWithCacheBusting,
+        avatarUrl: imageUrl,
         updatedAt: new Date() 
       },
-      select: { id: true, username: true, email: true, avatarUrl: true, isVerified: true, createdAt: true, updatedAt: true }
+      select: { 
+        id: true, 
+        username: true, 
+        email: true, 
+        avatarUrl: true, 
+        isVerified: true, 
+        createdAt: true, 
+        updatedAt: true 
+      }
     });
 
     res.json({
@@ -781,10 +809,11 @@ export const updateAvatar = async (req: any, res: Response): Promise<void> => {
       data: { user: updatedUser }
     });
   } catch (error) {
-    console.error('Update avatar error:', error);
+    console.error('❌ [updateAvatar] Error:', error);
     res.status(500).json({ 
       success: false, 
-      message: 'Errore durante l\'aggiornamento dell\'avatar' 
+      message: 'Errore durante l\'aggiornamento dell\'avatar',
+      error: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 };
