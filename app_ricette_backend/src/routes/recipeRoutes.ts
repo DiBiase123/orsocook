@@ -23,27 +23,10 @@ import {
 
 // @ts-ignore - Ignora errore tipo multer
 import multer from 'multer';
-import fs from 'fs';
-import path from 'path';
 
-// Configura multer per file temporanei su disco (come prima)
-const storage = multer.diskStorage({
-  destination: function (req: express.Request, file: Express.Multer.File, cb: (error: Error | null, destination: string) => void) {
-    const uploadDir = 'uploads/';
-    // Crea directory se non esiste
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-    cb(null, uploadDir);
-  },
-  filename: function (req: express.Request, file: Express.Multer.File, cb: (error: Error | null, filename: string) => void) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
-  }
-});
-
+// ✅ MODIFICA: Usa memoryStorage invece di diskStorage per Vercel
 const upload = multer({ 
-  storage: storage,
+  storage: multer.memoryStorage(), // ⬅️ MODIFICA CRUCIALE
   limits: {
     fileSize: 10 * 1024 * 1024, // 10MB
   },
