@@ -54,8 +54,18 @@ export const consoleTransport = new transports.Console({
   silent: process.env.NODE_ENV === 'test',
 });
 
+// Definizione tipo per le opzioni
+interface TransportOptions {
+  level: string;
+  filename: string;
+  datePattern: string;
+  maxSize: string;
+  maxFiles: string;
+  zippedArchive?: boolean;
+}
+
 // Helper per creare transport file con error handling TYPE-SAFE
-const createFileTransport = (options: any): DailyRotateFile | null => {
+const createFileTransport = (options: TransportOptions): DailyRotateFile | null => {
   try {
     return new DailyRotateFile({
       ...options,

@@ -1,11 +1,27 @@
 import { format } from 'winston';
 
+// Definizione tipo per i meta
+interface LogInfo {
+  timestamp?: string;
+  level: string;
+  message: string;
+  context?: string;
+  data?: any;
+  method?: string;
+  endpoint?: string;
+  statusCode?: number;
+  userId?: string;
+  durationMs?: number;
+  [key: string]: any;
+}
+
 // Formato per console (sviluppo) - colorato e leggibile
 export const consoleFormat = format.combine(
   format.timestamp({ format: 'HH:mm:ss' }),
   format.colorize(),
-  format.printf(({ timestamp, level, message, context = 'APP', ...meta }) => {
-    const metaStr = meta.data ? ` ${JSON.stringify(meta.data)}` : '';
+  format.printf((info: LogInfo) => {
+    const { timestamp, level, message, context = 'APP', data, ...meta } = info;
+    const metaStr = data ? ` ${JSON.stringify(data)}` : '';
     return `${timestamp} [${level}] [${context}] ${message}${metaStr}`;
   })
 );
@@ -18,9 +34,9 @@ export const fileFormat = format.combine(
 );
 
 // Formato per API logging
-export const apiFormat = format.printf(({ message, ...meta }) => {
-  const { method, endpoint, statusCode, userId, durationMs } = meta;
-  return `${meta.timestamp} [API] ${method} ${endpoint} ${statusCode || ''} ${
+export const apiFormat = format.printf((info: LogInfo) => {
+  const { timestamp, message, method, endpoint, statusCode, userId, durationMs } = info;
+  return `${timestamp} [API] ${method} ${endpoint} ${statusCode || ''} ${
     userId ? `User:${userId}` : ''
-  } ${durationMs ? `${durationMs}ms` : ''}`;
+  } ${durationMs ? `${durationMs}ms` : ''} - ${message}`;
 });
