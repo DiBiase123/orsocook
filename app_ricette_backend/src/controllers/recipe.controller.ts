@@ -64,9 +64,45 @@ async function getRecipeWithCounts(id: string) {
   };
 }
 
-// Helper: Upload image
-async function uploadImage(fileBuffer: Buffer): Promise<string> {
-  return await uploadImageToCloudinary(fileBuffer, 'orsocook/recipes');
+// Helper: Upload image with enhanced logging and PNG handling
+async function uploadImage(
+  fileBuffer: Buffer, 
+  mimetype?: string, 
+  filename?: string
+): Promise<string> {
+  console.log('📤 Uploading image to Cloudinary...');
+  console.log(`📏 Buffer size: ${(fileBuffer.length / 1024).toFixed(2)} KB`);
+  console.log(`📄 MIME type: ${mimetype || 'unknown'}`);
+  console.log(`📝 Filename: ${filename || 'unknown'}`);
+  
+  // Check for PNG-specific issues
+  if (mimetype === 'image/png' || filename?.toLowerCase().endsWith('.png')) {
+    console.log('🎯 RILEVATO PNG - Verifiche speciali...');
+    
+    // 1. Controlla dimensione (Vercel ha limiti!)
+    if (fileBuffer.length > 5 * 1024 * 1024) { // 5MB
+      console.warn('⚠️ PNG > 5MB: Potrebbe causare timeout su Vercel');
+    }
+    
+    // 2. Verifica signature PNG
+    if (fileBuffer.length >= 8) {
+      const signature = fileBuffer.slice(0, 8).toString('hex');
+      console.log(`🔍 PNG signature: ${signature}`);
+      const isValidPng = signature === '89504e470d0a1a0a';
+      console.log(`✅ PNG valido? ${isValidPng}`);
+      
+      if (!isValidPng) {
+        console.error('❌ ERRORE: PNG con signature non valida!');
+      }
+    }
+  }
+  
+  return await uploadImageToCloudinary(
+    fileBuffer, 
+    'orsocook/recipes', 
+    mimetype, 
+    filename
+  );
 }
 
 // GET /api/recipes
@@ -170,6 +206,22 @@ export async function getRecipeById(req: Request, res: Response) {
 // POST /api/recipes
 export async function createRecipe(req: AuthRequest, res: Response) {
   try {
+    console.log('=== CREATE RECIPE DEBUG ===');
+    console.log('User ID:', req.user.id);
+    console.log('Request body keys:', Object.keys(req.body));
+    console.log('Request file exists:', !!req.file);
+    
+    if (req.file) {
+      console.log('📸 File details:', {
+        mimetype: req.file.mimetype,
+        originalname: req.file.originalname,
+        size: `${(req.file.size / 1024).toFixed(2)} KB`,
+        bufferLength: `${(req.file.buffer?.length || 0) / 1024} KB`,
+        encoding: req.file.encoding,
+        fieldname: req.file.fieldname
+      });
+    }
+    
     const { 
       title, description, prepTime, cookTime, servings, difficulty,
       isPublic = true, categoryId, ingredients = [], instructions = [], tags = [] 
@@ -188,16 +240,28 @@ export async function createRecipe(req: AuthRequest, res: Response) {
     let imageUrl: string | undefined;
     if (req.file?.buffer) {
       try {
-        imageUrl = await uploadImage(req.file.buffer);
+        console.log(`🔄 Starting upload for ${req.file.mimetype}...`);
+        // MODIFICA QUI: Aggiungi mimetype e filename
+        imageUrl = await uploadImage(
+          req.file.buffer, 
+          req.file.mimetype, 
+          req.file.originalname
+        );
+        console.log('✅ Image uploaded successfully:', imageUrl);
       } catch (error) {
-        console.error('Error uploading image:', error);
+        console.error('❌ Error uploading image:', error);
+        console.error('❌ Error stack:', error instanceof Error ? error.stack : 'No stack');
         return res.status(500).json({ 
           success: false, 
-          message: 'Errore nel caricamento dell\'immagine' 
+          message: 'Errore nel caricamento dell\'immagine',
+          details: error instanceof Error ? error.message : 'Unknown error'
         });
       }
+    } else {
+      console.log('ℹ️ No image provided');
     }
 
+    console.log('Creating recipe in database...');
     const recipe = await prisma.recipe.create({
       data: {
         title,
@@ -217,6 +281,7 @@ export async function createRecipe(req: AuthRequest, res: Response) {
     });
 
     if (tags?.length) {
+      console.log(`Processing ${tags.length} tags...`);
       const processedTags = await processTags(tags);
       if (processedTags.length) {
         await prisma.recipeTag.createMany({
@@ -236,13 +301,15 @@ export async function createRecipe(req: AuthRequest, res: Response) {
       });
     }
 
+    console.log('✅ Recipe created successfully:', recipe.id);
     res.status(201).json({
       success: true,
       message: 'Ricetta creata con successo',
       data: completeRecipe
     });
   } catch (error) {
-    console.error('Error creating recipe:', error);
+    console.error('❌ Error creating recipe:', error);
+    console.error('❌ Error stack:', error instanceof Error ? error.stack : 'No stack');
     res.status(500).json({ 
       success: false, 
       message: 'Errore nella creazione della ricetta',
@@ -254,6 +321,23 @@ export async function createRecipe(req: AuthRequest, res: Response) {
 // PUT /api/recipes/:id
 export async function updateRecipe(req: AuthRequest, res: Response) {
   try {
+    console.log('=== UPDATE RECIPE DEBUG ===');
+    console.log('Recipe ID:', req.params.id);
+    console.log('User ID:', req.user.id);
+    console.log('Request body keys:', Object.keys(req.body));
+    console.log('Request file exists:', !!req.file);
+    
+    if (req.file) {
+      console.log('📸 File details:', {
+        mimetype: req.file.mimetype,
+        originalname: req.file.originalname,
+        size: `${(req.file.size / 1024).toFixed(2)} KB`,
+        bufferLength: `${(req.file.buffer?.length || 0) / 1024} KB`,
+        encoding: req.file.encoding,
+        fieldname: req.file.fieldname
+      });
+    }
+    
     const { id } = req.params;
     const { 
       title, description, prepTime, cookTime, servings, difficulty,
@@ -296,19 +380,30 @@ export async function updateRecipe(req: AuthRequest, res: Response) {
 
     if (req.file?.buffer) {
       try {
-        updateData.imageUrl = await uploadImage(req.file.buffer);
+        console.log(`🔄 Starting upload for ${req.file.mimetype}...`);
+        // MODIFICA QUI: Aggiungi mimetype e filename
+        updateData.imageUrl = await uploadImage(
+          req.file.buffer, 
+          req.file.mimetype, 
+          req.file.originalname
+        );
+        console.log('✅ Image uploaded successfully:', updateData.imageUrl);
       } catch (error) {
-        console.error('Error uploading image:', error);
+        console.error('❌ Error uploading image:', error);
+        console.error('❌ Error stack:', error instanceof Error ? error.stack : 'No stack');
         return res.status(500).json({ 
           success: false, 
-          message: 'Errore nel caricamento dell\'immagine' 
+          message: 'Errore nel caricamento dell\'immagine',
+          details: error instanceof Error ? error.message : 'Unknown error'
         });
       }
     }
 
+    console.log('Updating recipe in database...');
     await prisma.recipe.update({ where: { id }, data: updateData });
 
     if (tags !== undefined) {
+      console.log(`Processing ${tags?.length || 0} tags...`);
       await prisma.recipeTag.deleteMany({ where: { recipeId: id } });
       
       if (tags?.length) {
@@ -332,13 +427,15 @@ export async function updateRecipe(req: AuthRequest, res: Response) {
       });
     }
 
+    console.log('✅ Recipe updated successfully:', id);
     res.json({
       success: true,
       message: 'Ricetta aggiornata con successo',
       data: updatedRecipe
     });
   } catch (error) {
-    console.error('Error updating recipe:', error);
+    console.error('❌ Error updating recipe:', error);
+    console.error('❌ Error stack:', error instanceof Error ? error.stack : 'No stack');
     res.status(500).json({ 
       success: false, 
       message: 'Errore nell\'aggiornamento della ricetta',
@@ -449,12 +546,24 @@ export async function uploadRecipeImage(req: AuthRequest, res: Response) {
   try {
     const { id } = req.params;
     
+    console.log('=== UPLOAD IMAGE DEBUG ===');
+    console.log('Recipe ID:', id);
+    console.log('User ID:', req.user.id);
+    console.log('Request file exists:', !!req.file);
+    
     if (!req.file?.buffer) {
       return res.status(400).json({ 
         success: false, 
         message: 'Nessun file immagine fornito' 
       });
     }
+
+    console.log('📸 File details:', {
+      mimetype: req.file.mimetype,
+      originalname: req.file.originalname,
+      size: `${(req.file.size / 1024).toFixed(2)} KB`,
+      bufferLength: `${(req.file.buffer?.length || 0) / 1024} KB`
+    });
 
     const existingRecipe = await prisma.recipe.findUnique({
       where: { id },
@@ -472,7 +581,14 @@ export async function uploadRecipeImage(req: AuthRequest, res: Response) {
       });
     }
 
-    const imageUrl = await uploadImage(req.file.buffer);
+    console.log(`🔄 Starting upload for ${req.file.mimetype}...`);
+    // MODIFICA QUI: Aggiungi mimetype e filename
+    const imageUrl = await uploadImage(
+      req.file.buffer, 
+      req.file.mimetype, 
+      req.file.originalname
+    );
+    console.log('✅ Image uploaded successfully:', imageUrl);
     
     await prisma.recipe.update({
       where: { id },
@@ -485,11 +601,15 @@ export async function uploadRecipeImage(req: AuthRequest, res: Response) {
       data: { imageUrl }
     });
   } catch (error) {
-    console.error('Error uploading recipe image:', error);
+    console.error('❌ Error uploading recipe image:', error);
+    console.error('❌ Error stack:', error instanceof Error ? error.stack : 'No stack');
     res.status(500).json({ 
       success: false, 
       message: 'Errore nel caricamento dell\'immagine',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: error instanceof Error ? error.message : 'Unknown error',
+      ...(process.env.NODE_ENV !== 'production' && { 
+        stack: error instanceof Error ? error.stack : undefined 
+      })
     });
   }
 }
