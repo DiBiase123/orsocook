@@ -1,5 +1,4 @@
-// app_ricette_backend/src/services/email.service.ts
-import nodemailer from 'nodemailer';
+import sgMail from '@sendgrid/mail';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -12,66 +11,36 @@ export interface EmailOptions {
 }
 
 export class EmailService {
-  private transporter: nodemailer.Transporter;
   private fromEmail: string;
   private frontendUrl: string;
+  private isConfigured: boolean;
 
   constructor() {
-    // Configurazione SMTP da variabili d'ambiente
-    const smtpHost = process.env.SMTP_HOST;
-    const smtpPort = parseInt(process.env.SMTP_PORT || '587');
-    const smtpUser = process.env.SMTP_USER;
-    const smtpPass = process.env.SMTP_PASS;
-    const smtpSecure = process.env.SMTP_SECURE === 'true';
+    // Configurazione SendGrid API
+    const sendgridApiKey = process.env.SENDGRID_API_KEY;
+    const fromEmail = process.env.SMTP_FROM || 'dibiasecompany@gmail.com';
 
     // Validazione configurazione
-    if (!smtpHost || !smtpUser || !smtpPass) {
-      console.warn('⚠️  Configurazione SMTP incompleta. Email non saranno inviate.');
-      console.warn('   Imposta: SMTP_HOST, SMTP_USER, SMTP_PASS');
+    if (!sendgridApiKey) {
+      console.warn('⚠️  Configurazione SendGrid incompleta. Email non saranno inviate.');
+      console.warn('   Imposta: SENDGRID_API_KEY');
+      this.isConfigured = false;
+    } else {
+      sgMail.setApiKey(sendgridApiKey);
+      this.isConfigured = true;
+      console.log('✅ SendGrid API configurata con successo');
     }
 
-    this.fromEmail = process.env.SMTP_FROM || `"OrsoCook" <${smtpUser}>`;
-    this.frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-
-    // Creazione transporter
-    this.transporter = nodemailer.createTransport({
-      host: smtpHost,
-      port: smtpPort,
-      secure: smtpSecure,
-      auth: {
-        user: smtpUser,
-        pass: smtpPass,
-      },
-      // Timeout per evitare blocchi
-      connectionTimeout: 10000, // 10 secondi
-      greetingTimeout: 10000,
-      socketTimeout: 10000,
-    });
-
-    // Verifica connessione SMTP (solo in sviluppo)
-    if (process.env.NODE_ENV === 'development') {
-      this.verifyConnection();
-    }
-  }
-
-  /**
-   * Verifica la connessione al server SMTP
-   */
-  private async verifyConnection(): Promise<void> {
-    try {
-      await this.transporter.verify();
-      console.log('✅ Connessione SMTP verificata con successo');
-    } catch (error) {
-      console.error('❌ Errore verifica connessione SMTP:', error);
-      console.warn('⚠️  Email non saranno inviate fino alla risoluzione');
-    }
+    this.fromEmail = `"OrsoCook" <${fromEmail}>`;
+    this.frontendUrl = process.env.FRONTEND_URL || 'https://orsocook.vercel.app';
   }
 
   /**
    * Invia email di verifica account
    */
   async sendVerificationEmail(email: string, token: string, username: string): Promise<boolean> {
-const verificationUrl = `https://orsocook.vercel.app/api/auth/verify-email/${token}`;    
+    const verificationUrl = `https://orsocook.vercel.app/api/auth/verify-email/${token}`;
+    
     const html = `
       <!DOCTYPE html>
       <html>
@@ -230,9 +199,8 @@ const verificationUrl = `https://orsocook.vercel.app/api/auth/verify-email/${tok
    * Metodo generico per inviare email
    */
   async sendEmail(options: EmailOptions): Promise<boolean> {
-    // Se SMTP non configurato, logga e ritorna successo fittizio in sviluppo
-    if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
-      console.warn('📧 Email non inviata (SMTP non configurato):', {
+    if (!this.isConfigured) {
+      console.warn('📧 Email non inviata (SendGrid non configurato):', {
         to: options.to,
         subject: options.subject,
       });
@@ -249,25 +217,24 @@ const verificationUrl = `https://orsocook.vercel.app/api/auth/verify-email/${tok
     }
 
     try {
-      const mailOptions = {
-        from: this.fromEmail,
+      const msg = {
         to: options.to,
+        from: this.fromEmail,
         subject: options.subject,
         html: options.html,
         text: options.text || options.html.replace(/<[^>]*>/g, ''),
       };
 
-      const info = await this.transporter.sendMail(mailOptions);
+      await sgMail.send(msg);
       
-      console.log('📧 Email inviata con successo:', {
+      console.log('📧 Email inviata con successo via SendGrid API:', {
         to: options.to,
         subject: options.subject,
-        messageId: info.messageId,
       });
       
       return true;
     } catch (error) {
-      console.error('❌ Errore invio email:', {
+      console.error('❌ Errore invio email via SendGrid API:', {
         to: options.to,
         subject: options.subject,
         error: error instanceof Error ? error.message : error,
