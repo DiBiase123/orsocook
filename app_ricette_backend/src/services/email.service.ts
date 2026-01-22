@@ -39,7 +39,7 @@ export class EmailService {
    * Invia email di verifica account
    */
   async sendVerificationEmail(email: string, token: string, username: string): Promise<boolean> {
-    const verificationUrl = `https://orsocook.vercel.app/api/auth/verify-email/${token}`;
+    const verificationUrl = `https://orsocook-api.onrender.com/api/auth/verify-email/${token}`;
     
     const html = `
       <!DOCTYPE html>
