@@ -1,4 +1,3 @@
-import fetch from 'node-fetch';
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -7,9 +6,8 @@ import dotenv from 'dotenv';
 import recipeRoutes from './routes/recipeRoutes';
 import categoryRoutes from './routes/categoryRoutes';
 import authRoutes from './routes/authRoutes';
-import favoriteRoutes from './routes/favoriteRoutes'; // <-- NUOVA IMPORT
+import favoriteRoutes from './routes/favoriteRoutes';
 import commentRoutes from './routes/commentRoutes';
-
 
 // Carica variabili ambiente
 dotenv.config();
@@ -42,41 +40,15 @@ app.use('/api/auth', authRoutes);
 app.use('/api/favorites', favoriteRoutes);
 app.use('/api/comments', commentRoutes);
 
+// IMPORTANTE: Ho rimosso il proxy MinIO perché:
+// 1. Su Render non esiste localhost:9000
+// 2. Stai usando Cloudinary per le immagini
+// 3. Il proxy causerebbe errori in produzione
 
-// Proxy per immagini MinIO (evita problemi CORS) - DEVE STARE PRIMA DEL 404 HANDLER
-app.get('/api/images/:bucket/:path(*)', async (req, res) => {
-  try {
-    const { bucket, path } = req.params;
-    const minioUrl = `http://localhost:9000/${bucket}/${path}`;
-    
-    console.log(`📤 Proxy request: ${minioUrl}`);
-    
-    const fetchResponse = await fetch(minioUrl);
-    
-    if (!fetchResponse.ok) {
-      console.log(`❌ MinIO response: ${fetchResponse.status} ${fetchResponse.statusText}`);
-      return res.status(fetchResponse.status).send('Image not found');
-    }
-    
-    // Copia headers
-    const contentType = fetchResponse.headers.get('content-type');
-    if (contentType) {
-      res.set('Content-Type', contentType);
-    }
-    
-    // Stream della risposta
-    const buffer = await fetchResponse.arrayBuffer();
-    res.send(Buffer.from(buffer));
-    
-    console.log(`✅ Proxy success for: ${minioUrl}`);
-    
-  } catch (error) {
-    console.error('❌ Proxy image error:', error);
-    res.status(500).send('Error fetching image');
-  }
-});
+// Se hai bisogno di servire immagini in futuro, usa Cloudinary direttamente
+// oppure configura un servizio esterno (Backblaze B2, AWS S3, etc.)
 
-// 404 handler (DEVE STARE DOPO TUTTE LE ROUTE)
+// 404 handler
 app.use((req, res) => {
   console.log(`❌ 404: ${req.method} ${req.originalUrl}`);
   res.status(404).json({
