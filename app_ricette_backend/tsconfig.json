@@ -11,10 +11,8 @@
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
     "declaration": false,
-    "declarationMap": false,
     "sourceMap": false,
-    "typeRoots": ["./node_modules/@types"],
-    "types": ["node"]  // <-- AGGIUNGI QUESTA RIGA
+    "typeRoots": ["./node_modules/@types"]
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "tests"]

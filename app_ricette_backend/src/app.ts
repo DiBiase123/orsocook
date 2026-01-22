@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 
@@ -24,7 +24,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static('uploads'));
 
 // Health check
-app.get('/health', (req, res) => {
+app.get('/health', (req: Request, res: Response) => {
   res.status(200).json({
     status: 'ok',
     timestamp: new Date().toISOString(),
@@ -40,16 +40,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/favorites', favoriteRoutes);
 app.use('/api/comments', commentRoutes);
 
-// IMPORTANTE: Ho rimosso il proxy MinIO perché:
-// 1. Su Render non esiste localhost:9000
-// 2. Stai usando Cloudinary per le immagini
-// 3. Il proxy causerebbe errori in produzione
-
-// Se hai bisogno di servire immagini in futuro, usa Cloudinary direttamente
-// oppure configura un servizio esterno (Backblaze B2, AWS S3, etc.)
-
-// 404 handler
-app.use((req, res) => {
+// 404 handler - deve essere l'ultimo middleware prima dell'error handler
+app.use('*', (req: Request, res: Response) => {
   console.log(`❌ 404: ${req.method} ${req.originalUrl}`);
   res.status(404).json({
     success: false,
@@ -59,11 +51,13 @@ app.use((req, res) => {
   });
 });
 
-// Error handler
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+// Error handler - DEVE avere 4 parametri e TUTTI devono essere dichiarati
+app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   console.error('❌ Errore server:', err);
   
-  res.status(err.status || 500).json({
+  const statusCode = (err as any).status || 500;
+  
+  res.status(statusCode).json({
     success: false,
     error: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message,
     ...(process.env.NODE_ENV !== 'production' && { stack: err.stack })
