@@ -1,9 +1,32 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 
-// Definisci e esporta l'interfaccia
+// Estendi l'interfaccia Request di Express
+declare module 'express' {
+  interface Request {
+    user?: {
+      id: string;
+      email: string;
+      role: string;
+    };
+    file?: any;
+    files?: any[];
+  }
+}
+
+// Definisci e esporta l'interfaccia COMPLETA
 export interface AuthRequest extends Request {
-  user?: any;
+  user: {
+    id: string;
+    email: string;
+    role: string;
+  };
+  file?: any;
+  files?: any[];
+  body: any;
+  params: any;
+  query: any;
+  headers: any; // <-- AGGIUNTA QUESTA
 }
 
 export const authenticateToken = (
@@ -31,10 +54,16 @@ export const authenticateToken = (
       req.user = {
         ...userObj,
         id: userObj.userId || userObj.userID || userObj.id,
-        userId: userObj.userId || userObj.userID || userObj.id
+        userId: userObj.userId || userObj.userID || userObj.id,
+        email: userObj.email || '',
+        role: userObj.role || 'user'
       };
     } else {
-      req.user = decoded;
+      req.user = {
+        id: '',
+        email: '',
+        role: 'user'
+      };
     }
     
     next();

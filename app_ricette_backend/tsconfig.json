@@ -1,21 +1,21 @@
 {
   "compilerOptions": {
-    "target": "ES2022",
+    "target": "ES2020",
     "module": "commonjs",
-    "lib": ["ES2022", "dom"], 
+    "lib": ["ES2020"],
     "outDir": "./dist",
     "rootDir": "./src",
-    "strict": false, 
-    "noImplicitAny": false,  
+    "strict": false,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
-    "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
-    "typeRoots": ["./node_modules/@types", "./src/types"]  
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false,
+    "typeRoots": ["./node_modules/@types"],
+    "types": ["node"]  // <-- AGGIUNGI QUESTA RIGA
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "prisma", "tests"]
+  "exclude": ["node_modules", "dist", "tests"]
 }
