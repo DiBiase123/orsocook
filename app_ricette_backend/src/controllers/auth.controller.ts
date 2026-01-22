@@ -761,7 +761,7 @@ export const updateAvatar = async (req: any, res: Response): Promise<void> => {
 
     // 🚨 IMPORTANTE: NOTA SULLA CANCELLAZIONE
     // Per cancellare un'immagine vecchia da Cloudinary, avremmo bisogno del public_id
-    // Ma se l'immagine vecchia è su MinIO (non Cloudinary), non possiamo cancellarla
+    // Nota: l'immagine vecchia potrebbe essere su storage precedente
     // Per ora, saltiamo la cancellazione e gestiamo solo il nuovo upload
     
     // Se vuoi implementare la cancellazione futura, dovrai:
