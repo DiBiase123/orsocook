@@ -1,9 +1,1 @@
-{
-  "dependencies": {
-    "slugify": "^1.6.6",
-    "winston": "^3.19.0"
-  },
-  "devDependencies": {
-    "@types/winston": "^2.4.4"
-  }
-}
+{}

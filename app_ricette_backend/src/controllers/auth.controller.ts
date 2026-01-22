@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 import jwt from 'jsonwebtoken';
 import { PrismaClient } from '@prisma/client';
 import { uploadImageToCloudinary } from '../services/cloudinary.service';
