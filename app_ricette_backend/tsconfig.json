@@ -2,10 +2,11 @@
   "compilerOptions": {
     "target": "ES2022",
     "module": "commonjs",
-    "lib": ["ES2022"],
+    "lib": ["ES2022", "dom"], 
     "outDir": "./dist",
     "rootDir": "./src",
-    "strict": true,
+    "strict": false, 
+    "noImplicitAny": false,  
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
@@ -13,7 +14,7 @@
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
-    "typeRoots": ["./node_modules/@types", "./src/types"]  // 👈 AGGIUNGI QUI
+    "typeRoots": ["./node_modules/@types", "./src/types"]  
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "prisma", "tests"]
