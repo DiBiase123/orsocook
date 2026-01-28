@@ -13,6 +13,7 @@ export interface EmailOptions {
 export class EmailService {
   private fromEmail: string;
   private frontendUrl: string;
+  private backendUrl: string;
   private isConfigured: boolean;
 
   constructor() {
@@ -32,14 +33,64 @@ export class EmailService {
     }
 
     this.fromEmail = `"OrsoCook" <${fromEmail}>`;
-    this.frontendUrl = process.env.FRONTEND_URL || 'https://orsocook.vercel.app';
+    
+    // Configurazione URL dinamiche per ambiente
+    this.backendUrl = this.getBackendUrl();
+    this.frontendUrl = this.getFrontendUrl();
+    
+    console.log('🌐 URL Configurazione:');
+    console.log(`   Backend: ${this.backendUrl}`);
+    console.log(`   Frontend: ${this.frontendUrl}`);
+  }
+
+  /**
+   * Ottiene URL backend in base all'ambiente
+   */
+  private getBackendUrl(): string {
+    const nodeEnv = process.env.NODE_ENV || 'development';
+    const port = process.env.PORT || '5000';
+    const customBackendUrl = process.env.BACKEND_URL;
+    
+    // Se c'è un URL custom configurato, usalo
+    if (customBackendUrl) {
+      return customBackendUrl;
+    }
+    
+    // Altrimenti usa logica predefinita
+    if (nodeEnv === 'development') {
+      return `http://localhost:${port}`;
+    }
+    
+    // Produzione (default Render.com)
+    return 'https://orsocook-api.onrender.com';
+  }
+
+  /**
+   * Ottiene URL frontend in base all'ambiente
+   */
+  private getFrontendUrl(): string {
+    const nodeEnv = process.env.NODE_ENV || 'development';
+    const customFrontendUrl = process.env.FRONTEND_URL;
+    
+    // Se c'è un URL custom configurato, usalo
+    if (customFrontendUrl) {
+      return customFrontendUrl;
+    }
+    
+    // Altrimenti usa logica predefinita
+    if (nodeEnv === 'development') {
+      return 'http://localhost:3000'; // Flutter web di default
+    }
+    
+    // Produzione (default Vercel)
+    return 'https://orsocook.vercel.app';
   }
 
   /**
    * Invia email di verifica account
    */
   async sendVerificationEmail(email: string, token: string, username: string): Promise<boolean> {
-    const verificationUrl = `https://orsocook-api.onrender.com/api/auth/verify-email/${token}`;
+    const verificationUrl = `${this.backendUrl}/api/auth/verify-email/${token}`;
     
     const html = `
       <!DOCTYPE html>
@@ -181,7 +232,7 @@ export class EmailService {
       ${resetUrl}
       
       Attenzione: Se non hai richiesto il reset della password, ignora questa email.
-      Il link di reset scadrà tra 1 ora per motivi di sicurezza.
+      Il link di reset scadrà tra 1 ora per motizi di sicurezza.
       
       Buona cucina!
       Il team di OrsoCook
@@ -210,6 +261,7 @@ export class EmailService {
         console.log('To:', options.to);
         console.log('Subject:', options.subject);
         console.log('Text:', options.text);
+        console.log('URL nel testo:', this.extractUrls(options.text || options.html));
         console.log('---');
       }
       
@@ -241,6 +293,14 @@ export class EmailService {
       });
       return false;
     }
+  }
+
+  /**
+   * Estrae URL dal testo per logging in sviluppo
+   */
+  private extractUrls(text: string): string[] {
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    return text.match(urlRegex) || [];
   }
 }
 

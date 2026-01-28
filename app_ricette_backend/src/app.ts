@@ -1,4 +1,5 @@
-import express, { Request, Response, NextFunction } from 'express';
+// src/app.ts - VERSIONE FUNZIONANTE SU RENDER
+import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 
@@ -16,7 +17,7 @@ const app = express();
 
 // Middleware
 app.use(cors({
-  origin: true,  // Permetti tutti in sviluppo
+  origin: true,
   credentials: true
 }));
 app.use(express.json());
@@ -24,7 +25,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static('uploads'));
 
 // Health check
-app.get('/health', (req: Request, res: Response) => {
+app.get('/health', (req, res) => {
   res.status(200).json({
     status: 'ok',
     timestamp: new Date().toISOString(),
@@ -40,8 +41,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/favorites', favoriteRoutes);
 app.use('/api/comments', commentRoutes);
 
-// 404 handler - deve essere l'ultimo middleware prima dell'error handler
-app.use('*', (req: Request, res: Response) => {
+// 404 handler
+app.use('*', (req, res) => {
   console.log(`❌ 404: ${req.method} ${req.originalUrl}`);
   res.status(404).json({
     success: false,
@@ -51,13 +52,11 @@ app.use('*', (req: Request, res: Response) => {
   });
 });
 
-// Error handler - DEVE avere 4 parametri e TUTTI devono essere dichiarati
-app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+// Error handler
+app.use((err: any, req, res, next) => {
   console.error('❌ Errore server:', err);
   
-  const statusCode = (err as any).status || 500;
-  
-  res.status(statusCode).json({
+  res.status(err.status || 500).json({
     success: false,
     error: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message,
     ...(process.env.NODE_ENV !== 'production' && { stack: err.stack })

@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import { AuthRequest } from '../middleware/auth';
 import slugify from 'slugify';
 import { uploadImageToCloudinary } from '../services/cloudinary.service';
+import Logger from '../utils/logger';
 
 const prisma = new PrismaClient();
 
@@ -31,7 +32,7 @@ async function processTags(tags: any[]): Promise<{ id: string }[]> {
       }
       processedTags.push({ id: tag.id });
     } catch (error) {
-      console.error(`Error processing tag "${name}":`, error);
+      Logger.error(`Error processing tag "${name}"`, error);
     }
   }
   return processedTags;
@@ -64,39 +65,12 @@ async function getRecipeWithCounts(id: string) {
   };
 }
 
-// Helper: Upload image with enhanced logging and PNG handling
+// Helper: Upload image
 async function uploadImage(
   fileBuffer: Buffer, 
   mimetype?: string, 
   filename?: string
 ): Promise<string> {
-  console.log('📤 Uploading image to Cloudinary...');
-  console.log(`📏 Buffer size: ${(fileBuffer.length / 1024).toFixed(2)} KB`);
-  console.log(`📄 MIME type: ${mimetype || 'unknown'}`);
-  console.log(`📝 Filename: ${filename || 'unknown'}`);
-  
-  // Check for PNG-specific issues
-  if (mimetype === 'image/png' || filename?.toLowerCase().endsWith('.png')) {
-    console.log('🎯 RILEVATO PNG - Verifiche speciali...');
-    
-    // 1. Controlla dimensione (Vercel ha limiti!)
-    if (fileBuffer.length > 5 * 1024 * 1024) { // 5MB
-      console.warn('⚠️ PNG > 5MB: Potrebbe causare timeout su Vercel');
-    }
-    
-    // 2. Verifica signature PNG
-    if (fileBuffer.length >= 8) {
-      const signature = fileBuffer.slice(0, 8).toString('hex');
-      console.log(`🔍 PNG signature: ${signature}`);
-      const isValidPng = signature === '89504e470d0a1a0a';
-      console.log(`✅ PNG valido? ${isValidPng}`);
-      
-      if (!isValidPng) {
-        console.error('❌ ERRORE: PNG con signature non valida!');
-      }
-    }
-  }
-  
   return await uploadImageToCloudinary(
     fileBuffer, 
     'orsocook/recipes', 
@@ -167,11 +141,11 @@ export async function getRecipes(req: Request, res: Response) {
       }
     });
   } catch (error) {
-    console.error('Error fetching recipes:', error);
+    Logger.error('Error fetching recipes', error);
     res.status(500).json({ 
       success: false, 
       message: 'Errore nel caricamento delle ricette',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : undefined
     });
   }
 }
@@ -194,11 +168,11 @@ export async function getRecipeById(req: Request, res: Response) {
 
     res.json({ success: true, data: recipe });
   } catch (error) {
-    console.error('Error fetching recipe:', error);
+    Logger.error('Error fetching recipe', error);
     res.status(500).json({ 
       success: false, 
       message: 'Errore nel caricamento della ricetta',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : undefined
     });
   }
 }
@@ -206,21 +180,7 @@ export async function getRecipeById(req: Request, res: Response) {
 // POST /api/recipes
 export async function createRecipe(req: AuthRequest, res: Response) {
   try {
-    console.log('=== CREATE RECIPE DEBUG ===');
-    console.log('User ID:', req.user.id);
-    console.log('Request body keys:', Object.keys(req.body));
-    console.log('Request file exists:', !!req.file);
-    
-    if (req.file) {
-      console.log('📸 File details:', {
-        mimetype: req.file.mimetype,
-        originalname: req.file.originalname,
-        size: `${(req.file.size / 1024).toFixed(2)} KB`,
-        bufferLength: `${(req.file.buffer?.length || 0) / 1024} KB`,
-        encoding: req.file.encoding,
-        fieldname: req.file.fieldname
-      });
-    }
+    Logger.debug('Creating recipe', { userId: req.user.id });
     
     const { 
       title, description, prepTime, cookTime, servings, difficulty,
@@ -240,28 +200,22 @@ export async function createRecipe(req: AuthRequest, res: Response) {
     let imageUrl: string | undefined;
     if (req.file?.buffer) {
       try {
-        console.log(`🔄 Starting upload for ${req.file.mimetype}...`);
-        // MODIFICA QUI: Aggiungi mimetype e filename
+        Logger.debug('Uploading image for recipe');
         imageUrl = await uploadImage(
           req.file.buffer, 
           req.file.mimetype, 
           req.file.originalname
         );
-        console.log('✅ Image uploaded successfully:', imageUrl);
       } catch (error) {
-        console.error('❌ Error uploading image:', error);
-        console.error('❌ Error stack:', error instanceof Error ? error.stack : 'No stack');
+        Logger.error('Error uploading image', error);
         return res.status(500).json({ 
           success: false, 
           message: 'Errore nel caricamento dell\'immagine',
-          details: error instanceof Error ? error.message : 'Unknown error'
+          details: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : undefined
         });
       }
-    } else {
-      console.log('ℹ️ No image provided');
     }
 
-    console.log('Creating recipe in database...');
     const recipe = await prisma.recipe.create({
       data: {
         title,
@@ -281,7 +235,6 @@ export async function createRecipe(req: AuthRequest, res: Response) {
     });
 
     if (tags?.length) {
-      console.log(`Processing ${tags.length} tags...`);
       const processedTags = await processTags(tags);
       if (processedTags.length) {
         await prisma.recipeTag.createMany({
@@ -301,19 +254,19 @@ export async function createRecipe(req: AuthRequest, res: Response) {
       });
     }
 
-    console.log('✅ Recipe created successfully:', recipe.id);
+    Logger.info('Recipe created', { recipeId: recipe.id, userId: req.user.id });
+    
     res.status(201).json({
       success: true,
       message: 'Ricetta creata con successo',
       data: completeRecipe
     });
   } catch (error) {
-    console.error('❌ Error creating recipe:', error);
-    console.error('❌ Error stack:', error instanceof Error ? error.stack : 'No stack');
+    Logger.error('Error creating recipe', error);
     res.status(500).json({ 
       success: false, 
       message: 'Errore nella creazione della ricetta',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : undefined
     });
   }
 }
@@ -321,24 +274,9 @@ export async function createRecipe(req: AuthRequest, res: Response) {
 // PUT /api/recipes/:id
 export async function updateRecipe(req: AuthRequest, res: Response) {
   try {
-    console.log('=== UPDATE RECIPE DEBUG ===');
-    console.log('Recipe ID:', req.params.id);
-    console.log('User ID:', req.user.id);
-    console.log('Request body keys:', Object.keys(req.body));
-    console.log('Request file exists:', !!req.file);
-    
-    if (req.file) {
-      console.log('📸 File details:', {
-        mimetype: req.file.mimetype,
-        originalname: req.file.originalname,
-        size: `${(req.file.size / 1024).toFixed(2)} KB`,
-        bufferLength: `${(req.file.buffer?.length || 0) / 1024} KB`,
-        encoding: req.file.encoding,
-        fieldname: req.file.fieldname
-      });
-    }
-    
     const { id } = req.params;
+    Logger.debug('Updating recipe', { recipeId: id, userId: req.user.id });
+    
     const { 
       title, description, prepTime, cookTime, servings, difficulty,
       isPublic, categoryId, ingredients, instructions, tags 
@@ -380,30 +318,25 @@ export async function updateRecipe(req: AuthRequest, res: Response) {
 
     if (req.file?.buffer) {
       try {
-        console.log(`🔄 Starting upload for ${req.file.mimetype}...`);
-        // MODIFICA QUI: Aggiungi mimetype e filename
+        Logger.debug('Uploading new image for recipe', { recipeId: id });
         updateData.imageUrl = await uploadImage(
           req.file.buffer, 
           req.file.mimetype, 
           req.file.originalname
         );
-        console.log('✅ Image uploaded successfully:', updateData.imageUrl);
       } catch (error) {
-        console.error('❌ Error uploading image:', error);
-        console.error('❌ Error stack:', error instanceof Error ? error.stack : 'No stack');
+        Logger.error('Error uploading image', error);
         return res.status(500).json({ 
           success: false, 
           message: 'Errore nel caricamento dell\'immagine',
-          details: error instanceof Error ? error.message : 'Unknown error'
+          details: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : undefined
         });
       }
     }
 
-    console.log('Updating recipe in database...');
     await prisma.recipe.update({ where: { id }, data: updateData });
 
     if (tags !== undefined) {
-      console.log(`Processing ${tags?.length || 0} tags...`);
       await prisma.recipeTag.deleteMany({ where: { recipeId: id } });
       
       if (tags?.length) {
@@ -427,19 +360,19 @@ export async function updateRecipe(req: AuthRequest, res: Response) {
       });
     }
 
-    console.log('✅ Recipe updated successfully:', id);
+    Logger.info('Recipe updated', { recipeId: id, userId: req.user.id });
+    
     res.json({
       success: true,
       message: 'Ricetta aggiornata con successo',
       data: updatedRecipe
     });
   } catch (error) {
-    console.error('❌ Error updating recipe:', error);
-    console.error('❌ Error stack:', error instanceof Error ? error.stack : 'No stack');
+    Logger.error('Error updating recipe', error);
     res.status(500).json({ 
       success: false, 
       message: 'Errore nell\'aggiornamento della ricetta',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : undefined
     });
   }
 }
@@ -467,13 +400,15 @@ export async function deleteRecipe(req: AuthRequest, res: Response) {
 
     await prisma.recipe.delete({ where: { id } });
 
+    Logger.info('Recipe deleted', { recipeId: id, userId: req.user.id });
+    
     res.json({ success: true, message: 'Ricetta eliminata con successo' });
   } catch (error) {
-    console.error('Error deleting recipe:', error);
+    Logger.error('Error deleting recipe', error);
     res.status(500).json({ 
       success: false, 
       message: 'Errore nell\'eliminazione della ricetta',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : undefined
     });
   }
 }
@@ -532,11 +467,11 @@ export async function getUserRecipes(req: AuthRequest, res: Response) {
       }
     });
   } catch (error) {
-    console.error('Error fetching user recipes:', error);
+    Logger.error('Error fetching user recipes', error);
     res.status(500).json({ 
       success: false, 
       message: 'Errore nel caricamento delle ricette dell\'utente',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : undefined
     });
   }
 }
@@ -546,24 +481,12 @@ export async function uploadRecipeImage(req: AuthRequest, res: Response) {
   try {
     const { id } = req.params;
     
-    console.log('=== UPLOAD IMAGE DEBUG ===');
-    console.log('Recipe ID:', id);
-    console.log('User ID:', req.user.id);
-    console.log('Request file exists:', !!req.file);
-    
     if (!req.file?.buffer) {
       return res.status(400).json({ 
         success: false, 
         message: 'Nessun file immagine fornito' 
       });
     }
-
-    console.log('📸 File details:', {
-      mimetype: req.file.mimetype,
-      originalname: req.file.originalname,
-      size: `${(req.file.size / 1024).toFixed(2)} KB`,
-      bufferLength: `${(req.file.buffer?.length || 0) / 1024} KB`
-    });
 
     const existingRecipe = await prisma.recipe.findUnique({
       where: { id },
@@ -581,51 +504,48 @@ export async function uploadRecipeImage(req: AuthRequest, res: Response) {
       });
     }
 
-    console.log(`🔄 Starting upload for ${req.file.mimetype}...`);
-    // MODIFICA QUI: Aggiungi mimetype e filename
+    Logger.debug('Uploading recipe image', { recipeId: id, userId: req.user.id });
+    
     const imageUrl = await uploadImage(
       req.file.buffer, 
       req.file.mimetype, 
       req.file.originalname
     );
-    console.log('✅ Image uploaded successfully:', imageUrl);
     
     await prisma.recipe.update({
       where: { id },
       data: { imageUrl }
     });
 
+    Logger.info('Recipe image uploaded', { recipeId: id, userId: req.user.id });
+    
     res.json({
       success: true,
       message: 'Immagine caricata con successo',
       data: { imageUrl }
     });
   } catch (error) {
-    console.error('❌ Error uploading recipe image:', error);
-    console.error('❌ Error stack:', error instanceof Error ? error.stack : 'No stack');
+    Logger.error('Error uploading recipe image', error);
     res.status(500).json({ 
       success: false, 
       message: 'Errore nel caricamento dell\'immagine',
-      error: error instanceof Error ? error.message : 'Unknown error',
-      ...(process.env.NODE_ENV !== 'production' && { 
-        stack: error instanceof Error ? error.stack : undefined 
-      })
+      error: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : undefined
     });
   }
 }
 
-// LIKE FUNCTIONS (mantenute compatte)
+// LIKE FUNCTIONS
 export async function getRecipeLikesCount(req: Request, res: Response) {
   try {
     const { id } = req.params;
     const count = await prisma.like.count({ where: { recipeId: id } });
     res.json({ success: true, data: { count } });
   } catch (error) {
-    console.error('Error getting likes count:', error);
+    Logger.error('Error getting likes count', error);
     res.status(500).json({ 
       success: false, 
       message: 'Errore nel recupero del conteggio likes',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : undefined
     });
   }
 }
@@ -638,11 +558,11 @@ export async function checkRecipeLiked(req: AuthRequest, res: Response) {
     });
     res.json({ success: true, data: { liked: !!like } });
   } catch (error) {
-    console.error('Error checking if liked:', error);
+    Logger.error('Error checking if liked', error);
     res.status(500).json({ 
       success: false, 
       message: 'Errore nella verifica del like',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : undefined
     });
   }
 }
@@ -672,11 +592,11 @@ export async function addLikeToRecipe(req: AuthRequest, res: Response) {
       data: { liked: true } 
     });
   } catch (error) {
-    console.error('Error adding like:', error);
+    Logger.error('Error adding like', error);
     res.status(500).json({ 
       success: false, 
       message: 'Errore nell\'aggiunta del like',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : undefined
     });
   }
 }
@@ -706,11 +626,11 @@ export async function removeLikeFromRecipe(req: AuthRequest, res: Response) {
       data: { liked: false } 
     });
   } catch (error) {
-    console.error('Error removing like:', error);
+    Logger.error('Error removing like', error);
     res.status(500).json({ 
       success: false, 
       message: 'Errore nella rimozione del like',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : undefined
     });
   }
 }
@@ -723,16 +643,16 @@ export async function checkRecipeFavorite(req: AuthRequest, res: Response) {
     });
     res.json({ success: true, data: { isFavorite: !!favorite } });
   } catch (error) {
-    console.error('Error checking favorite:', error);
+    Logger.error('Error checking favorite', error);
     res.status(500).json({ 
       success: false, 
       message: 'Errore nella verifica del preferito',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : undefined
     });
   }
 }
 
-// COMMENT FUNCTIONS (mantenute compatte)
+// COMMENT FUNCTIONS
 export async function getRecipeComments(req: Request, res: Response) {
   try {
     const { id: recipeId } = req.params;
@@ -743,11 +663,11 @@ export async function getRecipeComments(req: Request, res: Response) {
     });
     res.json({ success: true, data: comments });
   } catch (error) {
-    console.error('Error fetching comments:', error);
+    Logger.error('Error fetching comments', error);
     res.status(500).json({ 
       success: false, 
       message: 'Errore nel recupero dei commenti',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : undefined
     });
   }
 }
@@ -789,11 +709,11 @@ export async function createComment(req: AuthRequest, res: Response) {
       data: comment
     });
   } catch (error) {
-    console.error('Error creating comment:', error);
+    Logger.error('Error creating comment', error);
     res.status(500).json({ 
       success: false, 
       message: 'Errore nella creazione del commento',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : undefined
     });
   }
 }
@@ -833,11 +753,11 @@ export async function updateComment(req: AuthRequest, res: Response) {
       data: updatedComment
     });
   } catch (error) {
-    console.error('Error updating comment:', error);
+    Logger.error('Error updating comment', error);
     res.status(500).json({ 
       success: false, 
       message: 'Errore nell\'aggiornamento del commento',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : undefined
     });
   }
 }
@@ -872,11 +792,11 @@ export async function deleteComment(req: AuthRequest, res: Response) {
 
     res.json({ success: true, message: 'Commento eliminato con successo' });
   } catch (error) {
-    console.error('Error deleting comment:', error);
+    Logger.error('Error deleting comment', error);
     res.status(500).json({ 
       success: false, 
       message: 'Errore nell\'eliminazione del commento',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : undefined
     });
   }
 }

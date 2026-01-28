@@ -1,6 +1,4 @@
-// Logger semplice per backend - SENZA winston
-// Mantiene la stessa API per compatibilità
-
+// Logger semplice per backend
 export type LogContext = 
   | 'APP' 
   | 'API' 
@@ -32,7 +30,10 @@ export class Logger {
 
   static info(message: string, meta?: LogMeta): void {
     const context = meta?.context || 'APP';
-    console.log(`📗 [${context}] ${message}`, this._cleanMeta(meta));
+    // Solo in sviluppo
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`📗 [${context}] ${message}`, this._cleanMeta(meta));
+    }
   }
 
   static warn(message: string, meta?: LogMeta): void {
@@ -45,27 +46,34 @@ export class Logger {
     console.error(`📕 [${context}] ${message}`, error || '', this._cleanMeta(meta));
   }
 
-  // Metodi specializzati
+  // Metodi specializzati - SOLO ERRORI (4xx, 5xx)
   static api(method: string, endpoint: string, statusCode?: number, userId?: string, durationMs?: number): void {
-    const message = `${method} ${endpoint}`;
-    console.log(`📡 [API] ${message}`, {
-      statusCode,
-      userId,
-      durationMs: durationMs ? `${durationMs}ms` : undefined
-    });
+    // Log solo per errori (4xx, 5xx)
+    if (statusCode && statusCode >= 400) {
+      const message = `${method} ${endpoint}`;
+      console.log(`📡 [API] ${message}`, {
+        statusCode,
+        userId,
+        durationMs: durationMs ? `${durationMs}ms` : undefined
+      });
+    }
   }
 
   static db(operation: string, table?: string, data?: any): void {
-    if (process.env.NODE_ENV === 'development') {
+    // Log DB solo se esplicitamente abilitato
+    if (process.env.DEBUG_DB === 'true') {
       console.log(`🗄️ [DB] ${operation}`, { table, data });
     }
   }
 
   static auth(action: string, userId?: string, data?: any): void {
-    console.log(`🔐 [AUTH] ${action}`, { userId, data });
+    // Log auth solo in sviluppo
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`🔐 [AUTH] ${action}`, { userId, data });
+    }
   }
 
-  // Crea un logger con contesto predefinito (factory method)
+  // Crea un logger con contesto predefinito
   static create(context: LogContext) {
     return {
       debug: (message: string, meta?: Omit<LogMeta, 'context'>) => 
@@ -82,7 +90,7 @@ export class Logger {
     };
   }
 
-  // Helper per pulire meta (rimuove context duplicato)
+  // Helper per pulire meta
   private static _cleanMeta(meta?: LogMeta): any {
     if (!meta) return {};
     const { context, ...rest } = meta;
@@ -93,7 +101,7 @@ export class Logger {
 // Esporta il logger principale
 export default Logger;
 
-// Esporta anche i logger preconfigurati per contesti comuni
+// Logger preconfigurati
 export const ApiLogger = Logger.create('API');
 export const DbLogger = Logger.create('DB');
 export const AuthLogger = Logger.create('AUTH');

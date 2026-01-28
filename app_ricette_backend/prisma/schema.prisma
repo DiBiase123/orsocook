@@ -9,38 +9,31 @@ datasource db {
 }
 
 model User {
-  id              String    @id @default(uuid())
-  email           String    @unique
-  username        String    @unique
-  passwordHash    String
-  displayName     String?
-  avatarUrl       String?
-  bio             String?
-  role            Role      @default(USER)
-  isVerified      Boolean   @default(false)
-  
-  // 👇 NUOVI CAMPI PER VERIFICA EMAIL
-  emailToken      String?   @unique
+  id               String     @id @default(uuid())
+  email            String     @unique
+  username         String     @unique
+  passwordHash     String
+  displayName      String?
+  avatarUrl        String?
+  bio              String?
+  role             Role       @default(USER)
+  isVerified       Boolean    @default(false)
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+  emailToken       String?    @unique
   emailTokenExpiry DateTime?
-  
-  // 👇 NUOVI CAMPI PER RESET PASSWORD
-  resetToken      String?   @unique
+  lastLogin        DateTime?
+  lockedUntil      DateTime?
+  loginAttempts    Int        @default(0)
+  resetToken       String?    @unique
   resetTokenExpiry DateTime?
-  
-  // 👇 NUOVI CAMPI PER SICUREZZA
-  loginAttempts   Int       @default(0)
-  lockedUntil     DateTime?
-  lastLogin       DateTime?
-  
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  comments        Comment[]
-  favorites       Favorite[]
-  followers       Follows[]  @relation("followers")
-  following       Follows[]  @relation("following")
-  likes           Like[]
-  recipes         Recipe[]
-  sessions        Session[]
+  comments         Comment[]
+  favorites        Favorite[]
+  followers        Follows[]  @relation("followers")
+  following        Follows[]  @relation("following")
+  likes            Like[]
+  recipes          Recipe[]
+  sessions         Session[]
 
   @@map("users")
 }

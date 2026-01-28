@@ -1,7 +1,7 @@
 import express from 'express';
 import { PrismaClient } from '@prisma/client';
 import { authenticateToken } from '../middleware/auth';
-import Logger from '../utils/logger';  // Importa il nostro nuovo logger
+import Logger from '../utils/logger';
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -18,7 +18,6 @@ router.get('/', async (req: any, res) => {
   try {
     const userId = req.user.userId;
     
-    Logger.api('GET', '/api/favorites', undefined, userId);
     Logger.db('SELECT favorites', 'Favorite', { userId });
     
     const favorites = await prisma.favorite.findMany({
@@ -44,12 +43,6 @@ router.get('/', async (req: any, res) => {
     
     const duration = Date.now() - startTime;
     Logger.api('GET', '/api/favorites', 200, userId, duration);
-    Logger.info(`Found ${recipes.length} favorites for user ${userId}`, { 
-      context: 'FAVORITE',
-      userId,
-      count: recipes.length,
-      durationMs: duration
-    });
     
     res.json(recipes);
   } catch (error) {
@@ -71,7 +64,6 @@ router.post('/:recipeId', async (req: any, res) => {
     const userId = req.user.userId;
     const { recipeId } = req.params;
 
-    Logger.api('POST', `/api/favorites/${recipeId}`, undefined, userId);
     Logger.db('CREATE favorite', 'Favorite', { userId, recipeId });
     
     // Verifica che la ricetta esista
@@ -80,11 +72,8 @@ router.post('/:recipeId', async (req: any, res) => {
     });
 
     if (!recipe) {
-      Logger.warn(`Recipe not found`, {
-        context: 'FAVORITE',
-        userId,
-        recipeId
-      });
+      const duration = Date.now() - startTime;
+      Logger.api('POST', `/api/favorites/${recipeId}`, 404, userId, duration);
       return res.status(404).json({ error: 'Ricetta non trovata' });
     }
 
@@ -99,11 +88,8 @@ router.post('/:recipeId', async (req: any, res) => {
     });
 
     if (existingFavorite) {
-      Logger.warn(`Recipe already favorited`, {
-        context: 'FAVORITE',
-        userId,
-        recipeId
-      });
+      const duration = Date.now() - startTime;
+      Logger.api('POST', `/api/favorites/${recipeId}`, 400, userId, duration);
       return res.status(400).json({ error: 'Ricetta già nei preferiti' });
     }
 
@@ -126,13 +112,6 @@ router.post('/:recipeId', async (req: any, res) => {
 
     const duration = Date.now() - startTime;
     Logger.api('POST', `/api/favorites/${recipeId}`, 201, userId, duration);
-    Logger.info(`Recipe added to favorites`, {
-      context: 'FAVORITE',
-      userId,
-      recipeId,
-      recipeTitle: favorite.recipe.title,
-      durationMs: duration
-    });
     
     res.status(201).json({
       message: 'Ricetta aggiunta ai preferiti',
@@ -157,7 +136,6 @@ router.delete('/:recipeId', async (req: any, res) => {
     const userId = req.user.userId;
     const { recipeId } = req.params;
 
-    Logger.api('DELETE', `/api/favorites/${recipeId}`, undefined, userId);
     Logger.db('DELETE favorite', 'Favorite', { userId, recipeId });
     
     // Verifica che il preferito esista
@@ -171,11 +149,8 @@ router.delete('/:recipeId', async (req: any, res) => {
     });
 
     if (!favorite) {
-      Logger.warn(`Favorite not found`, {
-        context: 'FAVORITE',
-        userId,
-        recipeId
-      });
+      const duration = Date.now() - startTime;
+      Logger.api('DELETE', `/api/favorites/${recipeId}`, 404, userId, duration);
       return res.status(404).json({ error: 'Preferito non trovato' });
     }
 
@@ -191,12 +166,6 @@ router.delete('/:recipeId', async (req: any, res) => {
 
     const duration = Date.now() - startTime;
     Logger.api('DELETE', `/api/favorites/${recipeId}`, 200, userId, duration);
-    Logger.info(`Recipe removed from favorites`, {
-      context: 'FAVORITE',
-      userId,
-      recipeId,
-      durationMs: duration
-    });
     
     res.json({
       message: 'Ricetta rimossa dai preferiti'
@@ -220,7 +189,6 @@ router.get('/check/:recipeId', async (req: any, res) => {
     const userId = req.user.userId;
     const { recipeId } = req.params;
 
-    Logger.api('GET', `/api/favorites/check/${recipeId}`, undefined, userId);
     Logger.db('CHECK favorite', 'Favorite', { userId, recipeId });
     
     const favorite = await prisma.favorite.findUnique({

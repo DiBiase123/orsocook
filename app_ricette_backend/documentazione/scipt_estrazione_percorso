@@ -1,0 +1,48 @@
+#!/bin/bash
+
+cd /home/flutter_211/Documents/progetto_ricette || exit 1
+
+FILE="FOCUS_PROGETTO_$(date +%Y%m%d_%H%M).md"
+
+{
+    echo "# 🎯 FOCUS PROGETTO RICETTE"
+    echo "# Generato: $(date '+%d/%m/%Y %H:%M:%S')"
+    echo ""
+    
+    echo "## 🔙 BACKEND"
+    echo ""
+    echo "### File nella root:"
+    echo '```'
+    find app_ricette_backend -maxdepth 1 -type f 2>/dev/null | sort
+    echo '```'
+    echo ""
+    
+    echo "### Contenuto di prisma/:"
+    echo '```'
+    tree app_ricette_backend/prisma 2>/dev/null || echo "prisma non trovato"
+    echo '```'
+    echo ""
+    
+    echo "### Contenuto di src/:"
+    echo '```'
+    tree app_ricette_backend/src 2>/dev/null || echo "src non trovato"
+    echo '```'
+    echo ""
+    
+    echo "## 📱 FRONTEND"
+    echo ""
+    echo "### File nella root:"
+    echo '```'
+    find app_ricette_frontend -maxdepth 1 -type f 2>/dev/null | sort
+    echo '```'
+    echo ""
+    
+    echo "### Contenuto di lib/:"
+    echo '```'
+    tree app_ricette_frontend/lib 2>/dev/null || echo "lib non trovato"
+    echo '```'
+    
+} > "$FILE"
+
+echo "✅ Documentazione creata: $FILE"
+echo "📄 Per vedere: cat $FILE | less -R"
