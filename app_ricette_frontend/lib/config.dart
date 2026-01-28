@@ -1,13 +1,13 @@
-// lib/config.dart - VERSIONE CORRETTA CON PARAMETRO OPZIONALE
+// lib/config.dart - CONFIGURAZIONE PRODUZIONE (Render.com)
 
 class Config {
-  // 🔧 SELEZIONA QUI LA MODALITÀ:
-  static const String environment = 'local';
+  // 🔧 AMBIENTE PRODUZIONE
+  static const String environment = 'prod';
 
   static const Map<String, String> apiUrls = {
     'dev': 'http://10.0.2.2:5000',
     'local': 'http://localhost:5000',
-    'prod': 'https://tuodominio.com',
+    'prod': 'https://orsocook-api.onrender.com',
   };
 
   static String get apiBaseUrl {
@@ -18,7 +18,7 @@ class Config {
     return url;
   }
 
-  // 🛠️ **METODO buildUrl con parametro OPZIONALE**
+  // 🛠️ METODO buildUrl con parametro OPZIONALE
   static String buildUrl([String endpoint = '']) {
     final base = apiBaseUrl.endsWith('/')
         ? apiBaseUrl.substring(0, apiBaseUrl.length - 1)
@@ -32,7 +32,7 @@ class Config {
     return '$base/$path';
   }
 
-  // 🛠️ **METODO buildApiUrl per API** (facoltativo, per chiarezza)
+  // 🛠️ METODO buildApiUrl per API
   static String buildApiUrl(String endpoint) {
     return buildUrl('/api/$endpoint');
   }

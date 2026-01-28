@@ -5,6 +5,7 @@ import 'package:path/path.dart' as path;
 import '../models/recipe.dart';
 import '../utils/logger.dart';
 import 'auth_service.dart';
+import '../config.dart';
 
 class RecipeService extends ChangeNotifier {
   final Dio _dio = Dio();
@@ -17,7 +18,7 @@ class RecipeService extends ChangeNotifier {
   String? _lastError;
 
   RecipeService(this._authService) {
-    _dio.options.baseUrl = 'http://localhost:5000/api';
+    _dio.options.baseUrl = Config.buildUrl('/api');
     _dio.options.connectTimeout = const Duration(seconds: 10);
     _dio.options.receiveTimeout = const Duration(seconds: 10);
   }
